@@ -5,10 +5,10 @@
     tags = [ "top-level-intermediate" ]
 ) }}
 -- SQL model to build a hash column based on the values of this record
--- depends_on: {{ ref('candidates_custom_ab2') }}
+-- depends_on: {{ ref('placements_custom_ab2') }}
 select
     {{ dbt_utils.surrogate_key([
-        'candidateId',
+        'placementId',
         'updatedat',
         adapter.quote('name'),
         adapter.quote('type'),
@@ -16,8 +16,8 @@ select
         'fieldid',
     ]) }} as _airbyte_custom_hashid,
     tmp.*
-from {{ ref('candidates_custom_ab2') }} tmp
--- custom at Candidates/custom
+from {{ ref('placements_custom_ab2') }} tmp
+-- custom at placements/custom
 where 1 = 1
 {{ incremental_clause('_airbyte_emitted_at', this) }}
 

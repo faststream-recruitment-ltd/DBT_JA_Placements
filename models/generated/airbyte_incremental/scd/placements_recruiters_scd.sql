@@ -7,7 +7,7 @@
                     set final_table_relation = adapter.get_relation(
                             database=this.database,
                             schema=this.schema,
-                            identifier='candidates_recruiters'
+                            identifier='placements_recruiters'
                         )
                     %}
                     {#
@@ -33,12 +33,12 @@
                         from (
                                 select distinct _airbyte_unique_key as unique_key
                                 from {{ this }}
-                                where 1=1 {{ incremental_clause('_airbyte_normalized_at', adapter.quote(this.schema) + '.' + adapter.quote('candidates_recruiters')) }}
+                                where 1=1 {{ incremental_clause('_airbyte_normalized_at', adapter.quote(this.schema) + '.' + adapter.quote('placements_recruiters')) }}
                             ) recent_records
                             left join (
                                 select _airbyte_unique_key as unique_key, count(_airbyte_unique_key) as active_count
                                 from {{ this }}
-                                where _airbyte_active_row = 1 {{ incremental_clause('_airbyte_normalized_at', adapter.quote(this.schema) + '.' + adapter.quote('candidates_recruiters')) }}
+                                where _airbyte_active_row = 1 {{ incremental_clause('_airbyte_normalized_at', adapter.quote(this.schema) + '.' + adapter.quote('placements_recruiters')) }}
                                 group by _airbyte_unique_key
                             ) active_counts
                             on recent_records.unique_key = active_counts.unique_key
@@ -48,18 +48,18 @@
                     -- We have to have a non-empty query, so just do a noop delete
                     delete from {{ this }} where 1=0
                     {% endif %}
-                    ","delete from public.candidates_recruiters_stg where _airbyte_emitted_at != (select max(_airbyte_emitted_at) from public.candidates_recruiters_stg)"],
+                    ","delete from public.placements_recruiters_stg where _airbyte_emitted_at != (select max(_airbyte_emitted_at) from public.placements_recruiters_stg)"],
     tags = [ "top-level" ]
 ) }}
--- depends_on: ref('candidates_recruiters_stg')
+-- depends_on: ref('placements_recruiters_stg')
 with
 {% if is_incremental() %}
 new_data as (
     -- retrieve incremental "new" data
     select
         *
-    from {{ ref('candidates_recruiters_stg')  }}
-    -- candidates_recruiters from {{ source('public', '_airbyte_raw_candidates') }}
+    from {{ ref('placements_recruiters_stg')  }}
+    -- placements_recruiters from {{ source('public', '_airbyte_raw_placements') }}
     where 1 = 1
     {{ incremental_clause('_airbyte_emitted_at', this) }}
 ),
@@ -67,7 +67,7 @@ new_data_ids as (
     -- build a subset of _airbyte_unique_key from rows that are new
     select distinct
         {{ dbt_utils.surrogate_key([
-            'candidateid',
+            'placementid',
             'userid',
         ]) }} as _airbyte_unique_key
     from new_data
@@ -79,7 +79,7 @@ empty_new_data as (
 previous_active_scd_data as (
     -- retrieve "incomplete old" data that needs to be updated with an end date because of new changes
     select
-        {{ star_intersect(ref('candidates_recruiters_stg'), this, from_alias='inc_data', intersect_alias='this_data') }}
+        {{ star_intersect(ref('placements_recruiters_stg'), this, from_alias='inc_data', intersect_alias='this_data') }}
     from {{ this }} as this_data
     -- make a join with new_data using primary key to filter active data that need to be updated only
     join new_data_ids on this_data._airbyte_unique_key = new_data_ids._airbyte_unique_key
@@ -88,25 +88,25 @@ previous_active_scd_data as (
     where _airbyte_active_row = 1
 ),
 input_data as (
-    select {{ dbt_utils.star(ref('candidates_recruiters_stg')) }} from new_data
+    select {{ dbt_utils.star(ref('placements_recruiters_stg')) }} from new_data
     union all
-    select {{ dbt_utils.star(ref('candidates_recruiters_stg')) }} from previous_active_scd_data
+    select {{ dbt_utils.star(ref('placements_recruiters_stg')) }} from previous_active_scd_data
 ),
 {% else %}
 input_data as (
     select *
-    from {{ ref('candidates_recruiters_stg')  }}
-    -- candidates_recruiters from {{ source('public', '_airbyte_raw_candidates') }}
+    from {{ ref('placements_recruiters_stg')  }}
+    -- placements_recruiters from {{ source('public', '_airbyte_raw_placements') }}
 ),
 {% endif %}
 scd_data as (
     -- SQL model to build a Type 2 Slowly Changing Dimension (SCD) table for each record identified by their primary key
     select
       {{ dbt_utils.surrogate_key([
-      'candidateid',  
+      'placementid',  
       'userid',
       ]) }} as _airbyte_unique_key,
-      candidateid,
+      placementid,
       updatedat,
       firstName,
       lastName,
@@ -114,14 +114,14 @@ scd_data as (
       userid,
       _airbyte_emitted_at as _airbyte_start_at,
       lag(_airbyte_emitted_at) over (
-        partition by userid, candidateid
+        partition by userid, placementid
         order by
             updatedat is null asc,
             updatedat desc,
             _airbyte_emitted_at desc
       ) as _airbyte_end_at,
       case when row_number() over (
-        partition by userid, candidateid
+        partition by userid, placementid
         order by
             updatedat is null asc,
             updatedat desc,
@@ -154,7 +154,7 @@ dedup_data as (
 select
     _airbyte_unique_key,
     _airbyte_unique_key_scd,
-    candidateid,
+    placementid,
     updatedat,
     firstName,
     lastName,
