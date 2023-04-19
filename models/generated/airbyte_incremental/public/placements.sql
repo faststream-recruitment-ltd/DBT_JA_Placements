@@ -8,6 +8,7 @@
 -- depends_on: {{ ref('placements_scd') }}
 select
     _airbyte_unique_key,
+    placementid,
     job_jobId,
     job_source,
     type,
@@ -36,7 +37,6 @@ select
     startDate,
     updatedAt,
     recruiters,
-    placementId,
     chargeCurrency,
     workplaceAddress_url,
     workplaceAddress_city,

@@ -7,6 +7,7 @@
 -- SQL model to parse JSON blob stored in a single column and extract into separated field columns as described by the JSON Schema
 -- depends_on: {{ source('public', '_airbyte_raw_placements') }}
 select
+    {{ json_extract_scalar('_airbyte_data', ['placementId'], ['placementId']) }} as placementid,
     {{ json_extract_scalar('_airbyte_data', ['job', 'jobId'], ['job_jobId']) }} as job_jobId,
     {{ json_extract_scalar('_airbyte_data', ['job', 'source'], ['job_source']) }} as job_source,
     {{ json_extract_scalar('_airbyte_data', ['type'], ['type']) }} as {{ adapter.quote('type') }},
@@ -35,7 +36,6 @@ select
     {{ json_extract_scalar('_airbyte_data', ['startDate'], ['startDate']) }} as startDate,
     {{ json_extract_scalar('_airbyte_data', ['updatedAt'], ['updatedAt']) }} as updatedAt,
     {{ json_extract_array('_airbyte_data', ['recruiters'], ['recruiters']) }} as recruiters,
-    {{ json_extract_scalar('_airbyte_data', ['placementId'], ['placementId']) }} as placementId,
     {{ json_extract_scalar('_airbyte_data', ['chargeCurrency'], ['chargeCurrency']) }} as chargeCurrency,
     {{ json_extract_scalar('_airbyte_data', ['workplaceAddress', 'url'], ['workplaceAddress_url']) }} as workplaceAddress_url,
     {{ json_extract_scalar('_airbyte_data', ['workplaceAddress', 'city'], ['workplaceAddress_city']) }} as workplaceAddress_city,

@@ -67,7 +67,7 @@ new_data_ids as (
     -- build a subset of _airbyte_unique_key from rows that are new
     select distinct
         {{ dbt_utils.surrogate_key([
-            'placementId',
+            'placementid',
         ]) }} as _airbyte_unique_key
     from new_data
 ),
@@ -101,12 +101,13 @@ input_data as (
 scd_data as (
     -- SQL model to build a Type 2 Slowly Changing Dimension (SCD) table for each record identified by their primary key
     select
-      {{ dbt_utils.surrogate_key([
-      'placementId',
-      ]) }} as _airbyte_unique_key,
+    {{ dbt_utils.surrogate_key([
+    'placementid',
+    ]) }} as _airbyte_unique_key,
+    placementid,
     job_jobId,
     job_source,
-    type,
+    {{ adapter.quote('type') }},
     owner_email,
     owner_userId,
     owner_lastName,
@@ -132,7 +133,7 @@ scd_data as (
     startDate,
     updatedAt,
     recruiters,
-    placementId,
+    placementid,
     chargeCurrency,
     workplaceAddress_url,
     workplaceAddress_city,
@@ -162,14 +163,14 @@ scd_data as (
     summary,
     updatedAt as _airbyte_start_at,
     lag(updatedAt) over (
-        partition by placementId
+        partition by placementid
         order by
             updatedAt is null asc,
             updatedAt desc,
             _airbyte_emitted_at desc
       ) as _airbyte_end_at,
       case when row_number() over (
-        partition by placementId
+        partition by placementid
         order by
             updatedAt is null asc,
             updatedAt desc,
@@ -230,7 +231,7 @@ select
     startDate,
     updatedAt,
     recruiters,
-    placementId,
+    placementid,
     chargeCurrency,
     workplaceAddress_url,
     workplaceAddress_city,

@@ -7,7 +7,8 @@
 -- SQL model to cast each column to its adequate SQL type converted from the JSON schema type
 -- depends_on: {{ ref('placements_ab1') }}
 select
-    cast(job_jobId as {{ dbt_utils.type_bigint() }}) as job_jobId,
+    cast(placementid as {{ dbt_utils.type_bigint() }}) as placementid,
+    cast(job_jobId as {{ dbt_utils.type_string() }}) as job_jobId,
     cast(job_source as {{ dbt_utils.type_string() }}) as job_source,
     cast(type as {{ dbt_utils.type_string() }}) as type,
     cast(owner_email as {{ dbt_utils.type_string() }}) as owner_email,
@@ -35,7 +36,6 @@ select
     cast(startDate as {{ dbt_utils.type_string() }}) as startDate,
     cast(updatedAt as {{ dbt_utils.type_string() }}) as updatedAt,
     recruiters,
-    cast(placementId as {{ dbt_utils.type_string() }}) as placementId,
     cast(chargeCurrency as {{ dbt_utils.type_string() }}) as chargeCurrency,
     cast(workplaceAddress_url as {{ dbt_utils.type_string() }}) as workplaceAddress_url,
     cast(workplaceAddress_city as {{ dbt_utils.type_string() }}) as workplaceAddress_city,
