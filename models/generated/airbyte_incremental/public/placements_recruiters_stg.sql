@@ -8,7 +8,7 @@
 -- depends_on: {{ ref('placements_custom_ab2') }}
 select
     {{ dbt_utils.surrogate_key([
-        'placementid',
+        'placementId',
         'updatedat',
         'userid',
         'email',

@@ -6,7 +6,7 @@
 ) }}
 -- Final base SQL model
 -- depends_on: {{ ref('placements_recruiters_scd') }}
-select distinct on (_airbyte_unique_key)
+select
     _airbyte_unique_key,
     placementid,
     updatedat,
