@@ -64,13 +64,13 @@ select
     contractRate_onCostsType,
     contractRate_candidateRate,
     summary,
-    _airbyte_ab_id,
-    _airbyte_emitted_at,
+    _airbyte_raw_id,
+    _airbyte_extracted_at,
     {{ current_timestamp() }} as _airbyte_normalized_at,
     _airbyte_placements_hashid
 from {{ ref('placements_scd') }}
--- placements from {{ source('public', '_airbyte_raw_placements') }}
+-- placements from {{ source('airbyte_internal', 'jobadder_destv2_raw__stream_placements') }}
 where 1 = 1
 and _airbyte_active_row = 1
-{{ incremental_clause('_airbyte_emitted_at', this) }}
+{{ incremental_clause('_airbyte_extracted_at', this) }}
 

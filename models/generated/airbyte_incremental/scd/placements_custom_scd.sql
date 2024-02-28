@@ -1,5 +1,5 @@
 {{ config(
-    indexes = [{'columns':['_airbyte_active_row','_airbyte_unique_key_scd','_airbyte_emitted_at'],'type': 'btree'}],
+    indexes = [{'columns':['_airbyte_active_row','_airbyte_unique_key_scd','_airbyte_extracted_at'],'type': 'btree'}],
     unique_key = "_airbyte_unique_key_scd",
     schema = "SCD",
     post_hook = ["
@@ -25,9 +25,9 @@
                     -- ) and unique_key not in (
                     --     select unique_key from scd_table where active_row = 1 <incremental_clause(normalized_at, final_table)>
                     -- )
-                    -- We're incremental against normalized_at rather than emitted_at because we need to fetch the SCD
+                    -- We're incremental against normalized_at rather than extracted_at because we need to fetch the SCD
                     -- entries that were _updated_ recently. This is because a deleted record will have an SCD record
-                    -- which was emitted a long time ago, but recently re-normalized to have active_row = 0.
+                    -- which was extracted a long time ago, but recently re-normalized to have active_row = 0.
                     delete from {{ final_table_relation }} where {{ final_table_relation }}._airbyte_unique_key in (
                         select recent_records.unique_key
                         from (
@@ -48,7 +48,7 @@
                     -- We have to have a non-empty query, so just do a noop delete
                     delete from {{ this }} where 1=0
                     {% endif %}
-                    ","delete from Staging.placements_custom_stg where _airbyte_emitted_at != (select max(_airbyte_emitted_at) from Staging.placements_custom_stg)"],
+                    ","delete from Staging.placements_custom_stg where _airbyte_extracted_at != (select max(_airbyte_extracted_at) from Staging.placements_custom_stg)"],
     tags = [ "top-level" ]
 ) }}
 -- depends_on: ref('placements_custom_stg')
@@ -59,9 +59,9 @@ new_data as (
     select
         *
     from {{ ref('placements_custom_stg')  }}
-    -- placements_custom from {{ source('public', '_airbyte_raw_placements') }}
+    -- placements_custom from from {{ source('airbyte_internal', 'jobadder_destv2_raw__stream_placements') }}
     where 1 = 1
-    {{ incremental_clause('_airbyte_emitted_at', this) }}
+    {{ incremental_clause('_airbyte_extracted_at', this) }}
 ),
 new_data_ids as (
     -- build a subset of _airbyte_unique_key from rows that are new
@@ -84,7 +84,7 @@ previous_active_scd_data as (
     -- make a join with new_data using primary key to filter active data that need to be updated only
     join new_data_ids on this_data._airbyte_unique_key = new_data_ids._airbyte_unique_key
     -- force left join to NULL values (we just need to transfer column types only for the star_intersect macro on schema changes)
-    left join empty_new_data as inc_data on this_data._airbyte_ab_id = inc_data._airbyte_ab_id
+    left join empty_new_data as inc_data on this_data._airbyte_raw_id = inc_data._airbyte_raw_id
     where _airbyte_active_row = 1
 ),
 input_data as (
@@ -96,7 +96,7 @@ input_data as (
 input_data as (
     select *
     from {{ ref('placements_custom_stg')  }}
-    -- placements_custom from {{ source('public', '_airbyte_raw_placements') }}
+    -- placements_custom from {{ source('airbyte_internal', 'jobadder_destv2_raw__stream_placements') }}
 ),
 {% endif %}
 scd_data as (
@@ -112,23 +112,23 @@ scd_data as (
       {{ adapter.quote('type') }},
       {{ adapter.quote('value') }},
       fieldid,
-      _airbyte_emitted_at as _airbyte_start_at,
-      lag(_airbyte_emitted_at) over (
+      _airbyte_extracted_at as _airbyte_start_at,
+      lag(_airbyte_extracted_at) over (
         partition by fieldid, placementid
         order by
             updatedat is null asc,
             updatedat desc,
-            _airbyte_emitted_at desc
+            _airbyte_extracted_at desc
       ) as _airbyte_end_at,
       case when row_number() over (
         partition by fieldid, placementid
         order by
             updatedat is null asc,
             updatedat desc,
-            _airbyte_emitted_at desc
+            _airbyte_extracted_at desc
       ) = 1 then 1 else 0 end as _airbyte_active_row,
-      _airbyte_ab_id,
-      _airbyte_emitted_at,
+      _airbyte_raw_id,
+      _airbyte_extracted_at,
       _airbyte_custom_hashid
     from input_data
 ),
@@ -140,13 +140,13 @@ dedup_data as (
             partition by
                 _airbyte_unique_key,
                 _airbyte_start_at,
-                _airbyte_emitted_at
-            order by _airbyte_active_row desc, _airbyte_ab_id
+                _airbyte_extracted_at
+            order by _airbyte_active_row desc, _airbyte_raw_id
         ) as _airbyte_row_num,
         {{ dbt_utils.surrogate_key([
           '_airbyte_unique_key',
           '_airbyte_start_at',
-          '_airbyte_emitted_at'
+          '_airbyte_extracted_at'
         ]) }} as _airbyte_unique_key_scd,
         scd_data.*
     from scd_data
@@ -163,8 +163,8 @@ select
     _airbyte_start_at,
     _airbyte_end_at,
     _airbyte_active_row,
-    _airbyte_ab_id,
-    _airbyte_emitted_at,
+    _airbyte_raw_id,
+    _airbyte_extracted_at,
     {{ current_timestamp() }} as _airbyte_normalized_at,
     _airbyte_custom_hashid
 from dedup_data where _airbyte_row_num = 1
